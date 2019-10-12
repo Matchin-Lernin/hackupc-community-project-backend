@@ -27,14 +27,17 @@ class KMeansMethod:
 
     def recommend(self, Y):
         dat = []
+        print("YYYYYY")
+        print(Y)
+        print(Y['Key'])
         for i in Y['Key']:
             dat.append(i)
         return self.metadata.loc[dat]['Uri'].mode()
 
     def list_to_dataFrame(self, list_to_transform):
         df = pd.DataFrame(list_to_transform, columns=[
-            'danceability', 'energy', 'loudness', 'mode', 'speechiness',
-            'acousticness', 'instrumentalness', 'liveness', 'valence', 'tempo'
+            'Danceability', 'Energy', 'Key' ,'Loudness', 'Mode', 'Speechiness',
+            'Acousticness', 'Instrumentalness', 'Liveness', 'Valence', 'Tempo'
         ])
         print(df)
         return df
@@ -42,7 +45,6 @@ class KMeansMethod:
 if __name__=="__main__":
     kmeansInstance = KMeansMethod()
     input_user = pd.read_csv('datasets/input.csv')
-    prediction = kmeansInstance.predict(input_user)
     recommendation = kmeansInstance.recommend(input_user)
     print("Recomendation: ")
     print(recommendation[:5])
