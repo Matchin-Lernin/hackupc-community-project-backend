@@ -3,6 +3,8 @@ from flask import Flask, jsonify
 import requests
 import pyrebase
 import re
+import kmeans
+import json
 
 SPOTIFY_API_RETRIES = 3
 SPOTIFY_API_RTD = 5
@@ -32,12 +34,12 @@ config = {
     # measurementId: "G-287LP5C3VX"
 }
 
-access_token='BQBGC8X3WfUVYqIueobn69i8d4JnzvRSr5C9gOm6yBmjDoAaGFwu5-M2DNFbS7g3CruUU4Ztw612GuzpgtFzIjb039kIRoZ0EyvkMNJtW46lOunfpeNQCB6RgSu4IePuw9hGA0_Sk-nmOWNysncasYaf2M_pMEIwZANXcrTVRQt1veAItY9fbH6rsOxCy1OzEnJg9Qgs0T4q1aVBIXV-q6QUmzxFgP90SZq1PnnBG3vql5e3Z6Tiet3HMEO8WmOSlxwZWc4q4RE'
+access_token='BQAT8gAorP3aMO3ZIe6rC8vyxxXPQN4MT8GcJv72vYNzmonDyMaLdfH2xRPA8VCndR5ANE2ie2RxaLWi67yMFZZAaeRtgvF7dT42G-yM3tKgCEi-7n3PDb2-oxal-aFSvLoKTIkdxhg7NuzAoca1iUfbNpYoLemEPg'
 firebase = pyrebase.initialize_app(config)
 
 db = firebase.database()
 local = {}
-
+kmeans_instance = kmeans.KMeansMethod()
 app = Flask(__name__)
 
 @app.route('/')
@@ -69,8 +71,34 @@ def add(id_user, id_local, songs):
     users = list(users)
     db.child("playlists").child(id_local).set(users)
     user_songs = list(filter( lambda x: x is not None,[get_id_song_from_string(song) for song in songs.split(',')]))
-    print(user_songs)
+    feature_lists = get_features_from_songs(user_songs)
+    print(feature_lists)
+    features_df = kmeans_instance.list_to_dataFrame(feature_lists)
+    recomendations = kmeans_instance.recommend(features_df)
+    print(recomendations)
+    remove_track_from_playlist(id_local)
+    add_tracks_to_playlist(user_songs, recomendations)
     return str(users)
+
+def get_playlist_tracks(id_local):
+    header = {'Authorization': f'Bearer {access_token}'}
+    endpoint = 'https://api.spotify.com/v1/playlists/{id_local}/trackss' 
+    response = requests.get(endpoint, headers=header, params={'playlist_id':id_local},timeout=SPOTIFY_API_TIMEOUT)
+    if response.ok:
+        return response.json()
+    return None
+
+
+def remove_track_from_playlist(id_local):
+    header = {'Authorization': f'Bearer {access_token}'}
+    endpoint = 'https://api.spotify.com/v1/playlists/{id_local}/tracks'  
+    playlist_tracks = get_playlist_tracks(id_local)
+    request = requests.get(endpoint, headers=header, params={'playlist_id':id_local}, body=playlist_tracks, timeout=SPOTIFY_API_TIMEOUT)
+    if request.ok:
+        print("Content deleted successfully")
+    else:
+        print("Error removing the content")
+
 
 
 def get_id_song_from_string(song):
@@ -87,6 +115,34 @@ def get_id_song_from_string(song):
             return None if m is None else m.group(1)
     print("esta feo")
     return None
+
+def get_features_from_songs(songs_list_ids):
+    headers = {'Authorization': f'Bearer {access_token}'}
+    endpoint = 'https://api.spotify.com/v1/audio-features'
+    track_features = requests.get(endpoint, headers=headers, params={'ids':songs_list_ids}, timeout=SPOTIFY_API_TIMEOUT)
+    if track_features.ok:
+        features_list = parse_features(track_features.json())
+        return None if features_list is None else features_list
+    return None
+
+def parse_features(json_features_list):
+    csv_features = list()
+    csv_feature = list()
+    for json in json_features_list:
+        csv_feature.append(json['danceability'])
+        csv_feature.append(json['energy'])
+        csv_feature.append(json['loudness'])
+        csv_feature.append(json['mode'])
+        csv_feature.append(json['speechiness'])
+        csv_feature.append(json['acousticness'])
+        csv_feature.append(json['instrumentalness'])
+        csv_feature.append(json['liveness'])
+        csv_feature.append(json['valence'])
+        csv_feature.append(json['tempo'])
+        csv_features.append(csv_feature)
+        csv_feature.clear()
+    
+    return csv_features if csv_features else None
 
 def add_tracks_to_playlist(playlist_id, track_uri_list):
     for _ in range(0, SPOTIFY_API_RETRIES):
