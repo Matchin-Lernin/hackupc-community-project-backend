@@ -32,7 +32,7 @@ config = {
     # measurementId: "G-287LP5C3VX"
 }
 
-access_token='BQAi2iOaQ-MBXqLGSdMJH1A1xmreYGBeWRGzaHHuTuwBCj9ycHjo_Te_pZzwloCKY2jDE_Ys3JS4sY55E-mYirtWRoddVkLwllAHwaA5_IwSlOPKHFJ-NT3C68InDcdWftGZNdzpEyZZARFYZDFsCSyIbonzI8Ui8ajd_NHyeUgJAXt7QeN9b1BNVh2bOcTrtTZeqoxwyejoaYV2ogAOlXsOxFNZc3J4IF64UCVkZKXyKXUjleShZV2VeGuzWCbE-N7Z6sb8wt8'
+access_token='BQBRGHno9stq_ZV9folOJh6JLUCNivo-qi8jP9h2iGYhHbcFI445oQHhFrGmMbM6vS_-cBkRT8bVAjbJuiMvjLQ9pjBaVVshWNEhXl5VNKpX4nrPJBit5XW84M5IdRMIWSBtZuWZANkuiA_9hhqilHVX2l3oOAMUPDza9O8QAt8gGyfqVMgxVY-O_b5SqpvwNDsWBK82dob3cDxaRc9EgL46z5ZC7WuoEMSlnMKmJEu702ANL7ZQtML7NCy2cWoxgwJL0S4VPWU'
 firebase = pyrebase.initialize_app(config)
 
 db = firebase.database()
@@ -49,17 +49,18 @@ def exit(id_user, id_local):
     users = db.child("playlists").child(id_local).get().val()
     # print(type(users))
     users.remove(id_user)
-    db.child("playlists").child(id_local).set(users)
-    user_set = set()
-    for user in db.child("users").get().each():
-        user_set.add(user.val())
+    print(users)
+    try:
+        db.child("playlists").child(id_local).set(users)
+    except _ as _:
+        print("Child is already out(?)")
+    db.child("users").child(id_user).remove()
     # TODO jordi kmeans.get(list(user)); local[id_local] = result;
-
     return str(users)
 
 #TODO @sergi add add_tracks_to_playlist in add and delete functions
 
-@app.route('/add/<id_user>/<id_local>/<songs>')
+@app.route('/add/<id_user>/<id_local>/<songs>/')
 def add(id_user, id_local, songs):
     print
     users = db.child("playlists").child(id_local).get().val()
@@ -81,7 +82,8 @@ def add_music(id_local, user_songs):
 def refresh_playlist(id_local):
     parametrized_data = []
     for user in db.child("playlists").child(id_local).get().each():
-        tracks = db.child("users").child(user).get().val()
+        print(user.val())
+        tracks = db.child("users").child(user.val()).get().val()
         print(type(tracks))
     return parametrized_data
 
