@@ -33,6 +33,7 @@ config = {
 firebase = pyrebase.initialize_app(config)
 
 db = firebase.database()
+local = {}
 
 app = Flask(__name__)
 
@@ -46,6 +47,11 @@ def exit(id_user, id_local):
     # print(type(users))
     users.remove(id_user)
     db.child("playlists").child(id_local).set(users)
+    user_set = set()
+    for user in db.child("users").get().each():
+        user_set.add(user.val())
+    # TODO jordi kmeans.get(list(user)); local[id_local] = result;
+
     return str(users)
 
 #TODO @sergi add add_tracks_to_playlist in add and delete functions
@@ -65,6 +71,7 @@ def add_tracks_to_playlist(playlist_id, track_uri_list):
         headers = {'Authorization': f'Bearer {access_token}'}
         data = {'uris': track_uri_list}
         endpoint = SPOTIFY_API_ADD_TRACKS.format(playlist_id=playlist_id)
+        # TODO: DELETE SONGS FROM PLAYLIST
         track_response = requests.post(endpoint, json=data, headers=headers, timeout=SPOTIFY_API_TIMEOUT)
         if track_response.ok:
             return True
