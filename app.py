@@ -32,7 +32,7 @@ config = {
     # measurementId: "G-287LP5C3VX"
 }
 
-access_token='BQBGC8X3WfUVYqIueobn69i8d4JnzvRSr5C9gOm6yBmjDoAaGFwu5-M2DNFbS7g3CruUU4Ztw612GuzpgtFzIjb039kIRoZ0EyvkMNJtW46lOunfpeNQCB6RgSu4IePuw9hGA0_Sk-nmOWNysncasYaf2M_pMEIwZANXcrTVRQt1veAItY9fbH6rsOxCy1OzEnJg9Qgs0T4q1aVBIXV-q6QUmzxFgP90SZq1PnnBG3vql5e3Z6Tiet3HMEO8WmOSlxwZWc4q4RE'
+access_token='BQAi2iOaQ-MBXqLGSdMJH1A1xmreYGBeWRGzaHHuTuwBCj9ycHjo_Te_pZzwloCKY2jDE_Ys3JS4sY55E-mYirtWRoddVkLwllAHwaA5_IwSlOPKHFJ-NT3C68InDcdWftGZNdzpEyZZARFYZDFsCSyIbonzI8Ui8ajd_NHyeUgJAXt7QeN9b1BNVh2bOcTrtTZeqoxwyejoaYV2ogAOlXsOxFNZc3J4IF64UCVkZKXyKXUjleShZV2VeGuzWCbE-N7Z6sb8wt8'
 firebase = pyrebase.initialize_app(config)
 
 db = firebase.database()
@@ -69,9 +69,21 @@ def add(id_user, id_local, songs):
     users = list(users)
     db.child("playlists").child(id_local).set(users)
     user_songs = list(filter( lambda x: x is not None,[get_id_song_from_string(song) for song in songs.split(',')]))
+    add_music(id_user, user_songs)
+    refresh_playlist(id_local)
     print(user_songs)
     return str(users)
 
+def add_music(id_local, user_songs):
+    db.child("users").child(id_local).set(user_songs)
+    print(db.child("users").child(id_local).get().val())
+
+def refresh_playlist(id_local):
+    parametrized_data = []
+    for user in db.child("playlists").child(id_local).get().each():
+        tracks = db.child("users").child(user).get().val()
+        print(type(tracks))
+    return parametrized_data
 
 def get_id_song_from_string(song):
     for _ in range(0, SPOTIFY_API_RETRIES):
