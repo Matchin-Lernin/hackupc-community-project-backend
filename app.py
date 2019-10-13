@@ -12,7 +12,6 @@ SPOTIFY_API_TIMEOUT = 15
 SPOTIFY_RESPONSE_TYPE = 'code'
 SPOTIFY_REDIRECT_URI = 'https://gitinspect.ml/'
 SPOTIFY_SCOPES = 'playlist-modify-private playlist-modify-public'
-SPOTIFY_API_ADD_TRACKS = 'https://api.spotify.com/v1/playlists/{playlist_id}/tracks'
 SPOTIFY_SEARCH = 'https://api.spotify.com/v1/search'
 
 MESSAGE_ERROR = 'Unexpected error.'
@@ -34,7 +33,7 @@ config = {
     # measurementId: "G-287LP5C3VX"
 }
 
-access_token='BQCXkjJzTIGTrcCeWM4GEfPpXjzuXUT-ARSOKe1f8yaK3cf-WWIvkmPlukKmhGMGppjV6G78GzZ6BHRv63WL6wWlRUM1GdnGXL4DyHqWhviU8H05NX099zViUHkCj9eNNKVwDlCf-A_7J3jREJ_s-35hP3H61p32DztZ8vVSnrDTX0bWu6yequER2pmjmoRjxb345z0XyNzQQ-w78I752SW3YkrwPuuej1r4AwNoaLZmQrByG5xaqkM-7XlLaZpkyI6vryfKpM8'
+access_token='BQAeOI_YPfr3Pw0SMWHAzAPSoM682L72iA5eV4Vp8_tbE7_YnztFHDW1UYecXqejAOGKTH5_v0B3kQZsr0dEqmuJoVI3ntKIxVkFKw13wDkuEwMYsKQ7w014IiUpLfhdL-rlqcLFyMRqHkfRB3vqbVBfH1i5v_PNQqtOMO81rHnbFLTuPkdxkZpaKBcZUQY-ZnkcMimMjKtMrLu161oHRvE25jvrOrLShp8vZepsbIvb6bO-vFplm7nFV6msj-WPD1jnaIHhY4g'
 firebase = pyrebase.initialize_app(config)
 
 db = firebase.database()
@@ -49,15 +48,13 @@ def index():
 @app.route('/exit/<id_user>/<id_local>/')
 def exit(id_user, id_local):
     users = db.child("playlists").child(id_local).get().val()
-    # print(type(users))
     users.remove(id_user)
-    print(users)
     try:
         db.child("playlists").child(id_local).set(users)
     except _ as _:
         print("Child is already out(?)")
     db.child("users").child(id_user).remove()
-    # TODO jordi kmeans.get(list(user)); local[id_local] = result;
+    
     return str(users)
 
 #TODO @sergi add add_tracks_to_playlist in add and delete functions
@@ -71,7 +68,14 @@ def add(id_user, id_local, songs):
     db.child("playlists").child(id_local).set(users)
     user_songs = list(filter( lambda x: x is not None,[get_id_song_from_string(song) for song in songs.split(',')]))
     add_music(id_user, user_songs)
-    feature_lists = get_features_from_songs(user_songs)
+    group_track = []
+    for user in db.child("users").get().each():
+        group_track.extend(user.val())
+    print("ASDASDASDASD")
+    print(group_track)
+    # group_track = get_playlist_tracks(id_local)
+    
+    feature_lists = get_features_from_songs(group_track)
     features_df = kmeans_instance.list_to_dataFrame(feature_lists)
     recomendations = kmeans_instance.recommend(features_df)
     remove_track_from_playlist(id_local)
@@ -85,15 +89,19 @@ def get_playlist_tracks(id_local):
     if track_response.ok:
         tracks = list()
         for item in track_response.json()['items']:
+            print("S12312312")
+            print(item)
             tracks.append({'uri':item['track']['uri']})
         dicc  = {'tracks':tracks}
         return dicc
+    print(track_response)
     return None
 
 def remove_track_from_playlist(id_local):
     header = {'Authorization': f'Bearer {access_token}'}
     endpoint = f'https://api.spotify.com/v1/playlists/{id_local}/tracks' 
     playlist_tracks = get_playlist_tracks(id_local)
+    print(playlist_tracks)
     request = requests.delete(endpoint, headers=header, data=json.dumps(playlist_tracks), timeout=SPOTIFY_API_TIMEOUT)
     if request.ok:
         print("Content deleted successfully")
@@ -102,24 +110,21 @@ def remove_track_from_playlist(id_local):
 
 def add_music(id_local, user_songs):
     db.child("users").child(id_local).set(user_songs)
-    # print(db.child("users").child(id_local).get().val())
 
 def get_id_song_from_string(song):
     for _ in range(0, SPOTIFY_API_RETRIES):
         headers = {'Authorization': f'Bearer {access_token}'}
         endpoint = 'https://api.spotify.com/v1/search'
-        # TODO: DELETE SONGS FROM PLAYLIST
-        track_response = requests.get(endpoint, headers=headers, params={'q':song,'type':'track'},timeout=SPOTIFY_API_TIMEOUT) 
-        print(track_response)
+
+        track_response = requests.get(endpoint, headers=headers, params={'q':song.replace("_", " "),'type':'track'},timeout=SPOTIFY_API_TIMEOUT) 
         if track_response.ok:
             m = re.search(r'track/(.*)"', track_response.text)
-            print('GOD TO C U')
-            print(m)
             return None if m is None else m.group(1)
-    print("esta feo")
+
     return None
 
 def get_features_from_songs(songs_list_ids):
+    print(songs_list_ids)
     headers = {'Authorization': f'Bearer {access_token}'}
     endpoint = 'https://api.spotify.com/v1/audio-features'
     track_features = requests.get(endpoint, headers=headers, params={'ids':songs_list_ids}, timeout=SPOTIFY_API_TIMEOUT)
@@ -155,10 +160,12 @@ def add_tracks_to_playlist(id_local, track_uri_list):
     print(songs)
     for _ in range(0, SPOTIFY_API_RETRIES):
         headers = {'Authorization': f'Bearer {access_token}'}
-        data = {'uris': track_uri_list}
-        endpoint = SPOTIFY_API_ADD_TRACKS.format(playlist_id=id_local)
+        data = {'uris': ','.join(track_uri_list)}
+        print("ADADADA")
+        print(data)
+        endpoint = f'https://api.spotify.com/v1/playlists/{id_local}/tracks'
         # TODO: DELETE SONGS FROM PLAYLIST
-        track_response = requests.post(endpoint, json=data, headers=headers, timeout=SPOTIFY_API_TIMEOUT)
+        track_response = requests.post(endpoint, params=data, headers=headers, timeout=SPOTIFY_API_TIMEOUT)
         if track_response.ok:
             return True
     return None

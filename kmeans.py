@@ -9,8 +9,8 @@ class KMeansMethod:
         songsDb = pd.read_csv('datasets/newSongDb.csv')
         self.metadata = pd.read_csv('datasets/metadataDB.csv')
         self.metadata.set_index('ID')
-        songsDb = shuffle(shuffle(songsDb))
-        self.X = songsDb.loc[[i for i in range(0, 100000)]]
+        songsDb = songsDb.loc[[i for i in range(0, 110000)]]
+        self.X = shuffle(songsDb)
         self.fitted = self.fit()
         
     def fit(self):
@@ -27,19 +27,15 @@ class KMeansMethod:
 
     def recommend(self, Y):
         dat = []
-        print("YYYYYY")
-        print(Y)
-        print(Y['Key'])
         for i in Y['Key']:
             dat.append(i)
-        return self.metadata.loc[dat]['Uri'].mode()
+        return self.metadata.loc[dat]['Uri'].mode().to_list()
 
     def list_to_dataFrame(self, list_to_transform):
         df = pd.DataFrame(list_to_transform, columns=[
             'Danceability', 'Energy', 'Key' ,'Loudness', 'Mode', 'Speechiness',
             'Acousticness', 'Instrumentalness', 'Liveness', 'Valence', 'Tempo'
         ])
-        print(df)
         return df
 
 if __name__=="__main__":
